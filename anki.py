@@ -10,42 +10,67 @@ For each page:
 * Then there is also a div.f_kanji whose innerHTML contains the kanji
 """
 
-import bs4
+
+import time
 import http
+
+import bs4
 import requests
+
 from typing import List
+
 
 BASE_URL = "https://www.kanshudo.com"
 INDEX_PAGE_URL = f"{BASE_URL}/collections/vocab_usefulness2021"
-USER_AGENT_STR = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
 
-def download_all_kanji(urls: List[str]) -> None:
-    pass
+
+def get_soup(url: str) -> bs4.BeautifulSoup:
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
+    }
+    print(f"Fetching page {url} with {headers=}")
+
+    res = requests.get(url, headers=headers)
+    assert (
+        res.status_code == http.HTTPStatus.OK
+    ), f"Server returned {res.status_code} {res.reason}"
+
+    return bs4.BeautifulSoup(res.content, "html.parser")
+
+
+def download_all_kanji(urls: List[str], page_delay=500) -> None:
+    for url in urls:
+        soup = get_soup(url)
+        time.sleep(page_delay / 1000.0)
+
 
 if __name__ == "__main__":
-    # Get HTML
-    res = requests.get(INDEX_PAGE_URL, headers={"User-Agent": USER_AGENT_STR})
-    assert res.status_code == http.HTTPStatus.OK, f"Status code is {res.status_code}"
-
-    # Parse it
-    soup = bs4.BeautifulSoup(res.content, "html.parser")
-
-    # There should be five usefulness levels, organised into "info panels"
-    info_panels = soup.find_all("div", class_="infopanel")
-    assert len(info_panels) == 5, f"Expected 5 'div.infopanel's, but got {len(info_panels)}"
+    info_panels = get_soup(INDEX_PAGE_URL).find_all("div", class_="infopanel")
+    assert (
+        len(info_panels) == 5
+    ), f"Expected 5 'div.infopanel's, but got {len(info_panels)}"
 
     urls = []
 
     for i, panel in enumerate(info_panels):
         table = panel.find("div", class_="coll2 spaced")
+        prev_upper_bound = 0
+        print(f"\nGroup {i+1}")
 
         for j, div in enumerate(table.find_all("div")):
             a_tag = div.find("a")
             link = BASE_URL + a_tag["href"]
             urls.append(link)
 
-            # Print the links to the console
             word_range = a_tag.decode_contents()
+            lower_bound = int(word_range.split("-")[0])
+            upper_bound = int(word_range.split("-")[1])
+
+            assert (
+                lower_bound == 1 or lower_bound == prev_upper_bound + 1
+            ), f"Word ranges are not continuous (went from {prev_upper_bound} to {lower_bound})"
+
+            prev_upper_bound = upper_bound
             print(f"{word_range:>10}: {link}")
 
     download_all_kanji(urls)
