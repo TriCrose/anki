@@ -12,6 +12,7 @@ For each page:
 
 
 import os
+import sys
 import csv
 import time
 import http
@@ -104,4 +105,4 @@ if __name__ == "__main__":
             urls_with_counts.append((link, upper_bound - lower_bound + 1))
             print(f"{word_range:>10}: {link}")
 
-    download_all_kanji(urls_with_counts, "output.csv")
+    download_all_kanji(urls_with_counts, sys.argv[1] if len(sys.argv) > 1 else "output.csv")
